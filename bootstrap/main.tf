@@ -27,8 +27,9 @@ provider "aws" {
 }
 
 locals {
-  repo   = "lanscloud01/AWS-CI-CD-Foundations"
-  bucket = "tfstate-318432260330-eu-north-1"
+  repo          = "lanscloud01/AWS-CI-CD-Foundations"
+  repo_with_ids = "lanscloud01@271969168/AWS-CI-CD-Foundations@1415903297"
+  bucket        = "tfstate-318432260330-eu-north-1"
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -56,7 +57,10 @@ data "aws_iam_policy_document" "apply_trust" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${local.repo}:ref:refs/heads/main"]
+      values = [
+        "repo:${local.repo}:ref:refs/heads/main",
+        "repo:${local.repo_with_ids}:ref:refs/heads/main"
+      ]
     }
   }
 }
@@ -91,7 +95,10 @@ data "aws_iam_policy_document" "plan_trust" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${local.repo}:pull_request"]
+      values = [
+        "repo:${local.repo}:pull_request",
+        "repo:${local.repo_with_ids}:pull_request"
+      ]
     }
   }
 }

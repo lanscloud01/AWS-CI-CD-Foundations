@@ -1,0 +1,55 @@
+name: Terraform CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  id-token: write       # let job request OIDC token from GitHub
+  pull-requests: write  # let job comment the plan on the PR
+
+concurrency:
+  group: terraform-infra   # one run at a time, because plan takes the state lock
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.10"
+          terraform_wrapper: false
+
+      - uses: aws-actions/configure-aws-credentials@v4  # swap token for temp AWS credentials
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: eu-north-1
+
+      - run: terraform fmt -check -recursive    # check formatting
+      - run: terraform init -input=false        # initialize terraform
+      - run: terraform validate                 # validate configuration
+
+      - name: Plan  # run terraform plan & render to text for PR comment
+        run: |
+          terraform plan -input=false -no-color -out=tfplan
+          terraform show -no-color tfplan > plan.txt
+
+      - name: Comment plan on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let plan = fs.readFileSync('infra/plan.txt', 'utf8');
+            if (plan.length > 60000) plan = plan.slice(0, 60000) + '\n... (truncated)';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '### Terraform plan (infra)\n```\n' + plan + '\n```',
+            });
