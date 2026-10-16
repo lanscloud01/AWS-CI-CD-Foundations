@@ -27,9 +27,9 @@ provider "aws" {
 }
 
 locals {
-  repo   = "lanscloud01/AWS-CI-CD-Foundations"
+  repo          = "lanscloud01/AWS-CI-CD-Foundations"
   repo_with_ids = "lanscloud01@271969168/AWS-CI-CD-Foundations@1415903297"
-  bucket = "tfstate-318432260330-eu-north-1"
+  bucket        = "tfstate-318432260330-eu-north-1"
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
