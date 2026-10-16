@@ -26,15 +26,6 @@ jobs:
           terraform_version: "~> 1.10"
           terraform_wrapper: false
 
-      - name: Show OIDC claims
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const token = await core.getIDToken('sts.amazonaws.com');
-            const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
-            core.info(`sub: ${claims.sub}`);
-            core.info(`aud: ${claims.aud}`);
-
       - uses: aws-actions/configure-aws-credentials@v4  # swap token for temp AWS credentials
         with:
           role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
