@@ -8,8 +8,8 @@ permissions:
   id-token: write       # let job request OIDC token from GitHub
   pull-requests: write  # let job comment the plan on the PR
 
-concurrency:
-  group: terraform-infra   # one run at a time, because plan takes the state lock
+concurrency:  # one run at a time, because plan takes the state lock
+  group: terraform-infra
   cancel-in-progress: false
 
 jobs:
