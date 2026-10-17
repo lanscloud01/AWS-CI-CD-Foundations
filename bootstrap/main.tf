@@ -131,10 +131,45 @@ resource "aws_iam_role_policy" "plan_state" {
   policy = data.aws_iam_policy_document.plan_state.json
 }
 
+# --- Build artifacts: pipeline uploads, EC2 pulls via SSM ---
+
+resource "aws_s3_bucket" "artifacts" {
+  bucket = "artifacts-318432260330-eu-north-1"
+}
+
+resource "aws_s3_bucket_public_access_block" "artifacts" {
+  bucket                  = aws_s3_bucket.artifacts.id
+  block_public_acls       = true
+  ignore_public_acls      = true
+  block_public_policy     = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "artifacts" {
+  bucket = aws_s3_bucket.artifacts.id
+
+  rule {
+    id     = "expire-old-builds"
+    status = "Enabled"
+
+    filter {
+      prefix = "app/"
+    }
+
+    expiration {
+      days = 7
+    }
+  }
+}
+
 output "apply_role_arn" {
   value = aws_iam_role.apply.arn
 }
 
 output "plan_role_arn" {
   value = aws_iam_role.plan.arn
+}
+
+output "artifacts_bucket" {
+  value = aws_s3_bucket.artifacts.id
 }

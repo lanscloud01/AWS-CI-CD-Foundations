@@ -135,6 +135,19 @@ resource "aws_iam_role_policy_attachment" "ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+data "aws_iam_policy_document" "instance_artifacts" {
+  statement {
+    actions   = ["s3:GetObject"]
+    resources = ["arn:aws:s3:::artifacts-318432260330-eu-north-1/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "instance_artifacts" {
+  name   = "read-artifacts"
+  role   = aws_iam_role.instance.id
+  policy = data.aws_iam_policy_document.instance_artifacts.json
+}
+
 resource "aws_iam_instance_profile" "instance" {
   name = "${local.name}-instance"
   role = aws_iam_role.instance.name

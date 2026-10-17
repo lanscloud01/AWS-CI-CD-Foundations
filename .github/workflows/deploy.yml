@@ -1,0 +1,81 @@
+name: Deploy app
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-app
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-north-1
+  BUCKET: ${{ vars.ARTIFACT_BUCKET }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: eu-north-1
+
+      - name: Package and upload
+        run: |
+          KEY="app/app-${GITHUB_SHA}.tar.gz"
+          tar -czf app.tar.gz -C app --exclude=__pycache__ --exclude=test_app.py --exclude=requirements-dev.txt .
+          aws s3 cp app.tar.gz "s3://${BUCKET}/${KEY}"
+          aws s3 cp deploy/remote-deploy.sh "s3://${BUCKET}/deploy/remote-deploy.sh"
+          echo "KEY=${KEY}" >> "$GITHUB_ENV"
+
+      - name: Find instance
+        run: |
+          ID=$(aws ec2 describe-instances \
+            --filters Name=tag:Name,Values=cicd-foundations-app Name=instance-state-name,Values=running \
+            --query "Reservations[0].Instances[0].InstanceId" --output text)
+          if [ "$ID" = "None" ]; then
+            echo "No running instance. Run the Infra workflow with apply first."
+            exit 1
+          fi
+          echo "INSTANCE_ID=${ID}" >> "$GITHUB_ENV"
+
+      - name: Wait for SSM
+        run: |
+          for i in $(seq 1 30); do
+            STATUS=$(aws ssm describe-instance-information \
+              --filters Key=InstanceIds,Values="$INSTANCE_ID" \
+              --query "InstanceInformationList[0].PingStatus" --output text)
+            if [ "$STATUS" = "Online" ]; then exit 0; fi
+            echo "SSM status: $STATUS, waiting..."
+            sleep 10
+          done
+          echo "Instance never came online in SSM"
+          exit 1
+
+      - name: Deploy via SSM
+        run: |
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --parameters "{\"commands\":[\"aws s3 cp s3://${BUCKET}/deploy/remote-deploy.sh /tmp/remote-deploy.sh --region ${AWS_REGION}\",\"bash /tmp/remote-deploy.sh ${BUCKET} ${KEY}\"]}" \
+            --query "Command.CommandId" --output text)
+
+          aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" || true
+
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query "{Status:Status,Output:StandardOutputContent,Errors:StandardErrorContent}" --output yaml
+
+          STATUS=$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query Status --output text)
+          [ "$STATUS" = "Success" ]
+
+      - name: Show URL
+        run: |
+          IP=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" \
+            --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+          echo "App running at http://${IP}:8080/" >> "$GITHUB_STEP_SUMMARY"
