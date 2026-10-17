@@ -1,0 +1,52 @@
+name: Infra
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "What to do"
+        type: choice
+        options: [apply, destroy]
+        default: apply
+  push:
+    branches: [main]
+    paths: ["infra/**"]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:    # one run at a time, because plan takes the state lock
+  group: terraform-infra
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    # Manual runs always go ahead. Merges only run if AUTO_DEPLOY is "true".
+    if: github.event_name == 'workflow_dispatch' || vars.AUTO_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.10"
+          terraform_wrapper: false
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: eu-north-1
+
+      - run: terraform init -input=false
+
+      - name: Apply
+        if: github.event_name == 'push' || inputs.action == 'apply'
+        run: terraform apply -auto-approve -input=false # skip yes prompt
+
+      - name: Destroy
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
+        run: terraform destroy -auto-approve -input=false
