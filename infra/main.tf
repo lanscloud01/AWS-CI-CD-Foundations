@@ -37,6 +37,7 @@ locals {
 # ---------------------------------------------------------------------------
 
 resource "aws_vpc" "main" {
+  #checkov:skip=CKV2_AWS_11:Flow logs cost money; environment is disposable and torn down after each session
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
 
@@ -87,6 +88,14 @@ resource "aws_route_table_association" "public" {
 # Firewall
 # ---------------------------------------------------------------------------
 
+resource "aws_default_security_group" "default" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "${local.name}-default-sg-locked"
+  }
+}
+
 resource "aws_security_group" "app" {
   name        = "app-sg"
   description = "Allow app traffic in, all traffic out"
@@ -99,6 +108,7 @@ resource "aws_security_group" "app" {
 
 resource "aws_vpc_security_group_ingress_rule" "app_8080" {
   security_group_id = aws_security_group.app.id
+  description       = "Demo app on port 8080"
   cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "tcp"
   from_port         = 8080
@@ -107,6 +117,7 @@ resource "aws_vpc_security_group_ingress_rule" "app_8080" {
 
 resource "aws_vpc_security_group_egress_rule" "all_out" {
   security_group_id = aws_security_group.app.id
+  description       = "All outbound (SSM, package repos, S3)"
   cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "-1"
 }
@@ -163,8 +174,10 @@ data "aws_ssm_parameter" "al2023" {
 }
 
 resource "aws_instance" "app" {
+  #checkov:skip=CKV_AWS_126:Detailed monitoring is a per-instance charge; not needed for a demo
   ami                    = data.aws_ssm_parameter.al2023.value
   instance_type          = "t3.micro"
+  ebs_optimized          = true
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.app.id]
   iam_instance_profile   = aws_iam_instance_profile.instance.name

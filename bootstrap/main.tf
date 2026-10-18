@@ -71,6 +71,7 @@ resource "aws_iam_role" "apply" {
 }
 
 resource "aws_iam_role_policy_attachment" "apply_admin" {
+  #checkov:skip=CKV_AWS_274:Admin on the apply role for now; narrowing is on the roadmap
   role       = aws_iam_role.apply.name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
@@ -134,6 +135,11 @@ resource "aws_iam_role_policy" "plan_state" {
 # --- Build artifacts: pipeline uploads, EC2 pulls via SSM ---
 
 resource "aws_s3_bucket" "artifacts" {
+  #checkov:skip=CKV_AWS_21:Disposable builds expire after 7 days; versioning would only add cost
+  #checkov:skip=CKV_AWS_145:Bucket is already encrypted with SSE-S3; KMS adds cost for no benefit here
+  #checkov:skip=CKV_AWS_18:Access logging needs a second bucket; overkill for disposable build artifacts
+  #checkov:skip=CKV_AWS_144:Cross-region replication is pointless for disposable single-region artifacts
+  #checkov:skip=CKV2_AWS_62:Nothing consumes bucket events
   bucket = "artifacts-318432260330-eu-north-1"
 }
 
@@ -158,6 +164,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "artifacts" {
 
     expiration {
       days = 7
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
     }
   }
 }
