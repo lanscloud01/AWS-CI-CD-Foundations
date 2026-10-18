@@ -38,7 +38,7 @@ resource "aws_iam_openid_connect_provider" "github" {
   client_id_list = ["sts.amazonaws.com"]
 }
 
-# --- Apply role: code on main, or jobs in the sandbox environment ---
+# --- Apply role: jobs in the sandbox environment only ---
 
 data "aws_iam_policy_document" "apply_trust" {
   statement {
@@ -59,8 +59,6 @@ data "aws_iam_policy_document" "apply_trust" {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
       values = [
-        "repo:${local.repo}:ref:refs/heads/main",
-        "repo:${local.repo_with_ids}:ref:refs/heads/main",
         "repo:${local.repo}:environment:${local.environment}",
         "repo:${local.repo_with_ids}:environment:${local.environment}",
       ]
