@@ -46,6 +46,7 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_subnet" "public" {
+  #checkov:skip=CKV_AWS_130:No NAT gateway by design (cost); instance needs a public IP
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "eu-north-1a"
