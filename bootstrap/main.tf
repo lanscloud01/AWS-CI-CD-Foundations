@@ -30,6 +30,7 @@ locals {
   repo          = "lanscloud01/AWS-CI-CD-Foundations"
   repo_with_ids = "lanscloud01@271969168/AWS-CI-CD-Foundations@1415903297"
   bucket        = "tfstate-318432260330-eu-north-1"
+  environment   = "sandbox"
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -37,7 +38,7 @@ resource "aws_iam_openid_connect_provider" "github" {
   client_id_list = ["sts.amazonaws.com"]
 }
 
-# --- Apply role: only code already on main ---
+# --- Apply role: code on main, or jobs in the sandbox environment ---
 
 data "aws_iam_policy_document" "apply_trust" {
   statement {
@@ -59,7 +60,9 @@ data "aws_iam_policy_document" "apply_trust" {
       variable = "token.actions.githubusercontent.com:sub"
       values = [
         "repo:${local.repo}:ref:refs/heads/main",
-        "repo:${local.repo_with_ids}:ref:refs/heads/main"
+        "repo:${local.repo_with_ids}:ref:refs/heads/main",
+        "repo:${local.repo}:environment:${local.environment}",
+        "repo:${local.repo_with_ids}:environment:${local.environment}",
       ]
     }
   }

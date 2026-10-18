@@ -22,6 +22,7 @@ concurrency:    # one run at a time, because plan takes the state lock
 
 jobs:
   terraform:
+    environment: sandbox
     # Manual runs always go ahead. Merges only run if AUTO_DEPLOY is "true".
     if: github.event_name == 'workflow_dispatch' || vars.AUTO_DEPLOY == 'true'
     runs-on: ubuntu-latest
