@@ -67,14 +67,3 @@ flowchart LR
 | **Terraform CI** | Pull request | `fmt -check`, `validate`, `plan`, then comments the plan on the PR | plan (read-only) |
 | **Infra** | Manual (apply or destroy). Optionally on merge | Runs `terraform apply` or `destroy` on `infra/` | apply |
 | **Deploy app** | Manual | Uploads a build to S3, runs the deploy script on the instance through SSM, checks `/health` | apply |
-
-## Cost
-
-Everything is designed to cost pennies when idle. While running, the main costs are the `t3.micro` instance and its public IPv4 address, around a cent or two per hour in total. Destroying the infra layer after each session keeps a month's cost to a few dollars. Persistent pieces (IAM, OIDC, two small S3 buckets) are free or close to it.
-
-## Security notes
-
-- No AWS access keys exist in this repo or in GitHub.
-- State files and `*.tfvars` are git-ignored. The state bucket blocks public access and is versioned.
-- The instance's security group exposes only port 8080 (the demo app) and has no SSH rule. The instance can read one S3 bucket and talk to SSM, nothing more.
-- The apply role currently has `AdministratorAccess`. Narrowing it to what Terraform actually needs is a planned improvement.
