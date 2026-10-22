@@ -160,6 +160,22 @@ data "aws_iam_policy_document" "apply_permissions" {
     }
   }
 
+  statement {
+    sid = "ModifyOwnInstances"
+    actions = [
+      "ec2:ModifyInstanceAttribute",
+      "ec2:StopInstances",
+      "ec2:StartInstances",
+    ]
+    resources = ["arn:aws:ec2:eu-north-1:${local.account_id}:instance/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/Project"
+      values   = ["aws-cicd-foundations"]
+    }
+  }
+
   # Encrypted root volume uses the default EBS key, only via EC2
   statement {
     sid = "EbsEncryption"
