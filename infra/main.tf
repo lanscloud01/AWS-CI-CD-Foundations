@@ -30,6 +30,9 @@ provider "aws" {
 
 locals {
   name = "cicd-foundations"
+
+  # The instance terminates itself this long after boot, so a forgotten session can't keep billing
+  max_runtime_minutes = 240
 }
 
 # ---------------------------------------------------------------------------
@@ -181,6 +184,13 @@ resource "aws_instance" "app" {
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.app.id]
   iam_instance_profile   = aws_iam_instance_profile.instance.name
+
+  instance_initiated_shutdown_behavior = "terminate"
+
+  user_data = <<-EOF
+    #!/bin/bash
+    shutdown -h +${local.max_runtime_minutes}
+  EOF
 
   metadata_options {
     http_tokens = "required"
